@@ -6,6 +6,19 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: en_GB\n"
 
+#: core/bluetooth_transport.py
+msgid "Looking for the other computer over Bluetooth"
+msgstr ""
+
+#: core/bluetooth_transport.py
+msgid "Advertising over Bluetooth; choose Connect on the other computer"
+msgstr ""
+
+#: core/bluetooth_transport.py
+#, python-brace-format
+msgid "Bluetooth: {error}"
+msgstr ""
+
 #: core/effects.py mac_app/pages.py win_app/pages_win.py
 msgid "Light"
 msgstr ""
@@ -1251,6 +1264,62 @@ msgstr ""
 msgid "the {edge} edge"
 msgstr ""
 
+#: mac_app/bluetooth_dialog.py win_app/bluetooth_dialog.py
+msgid "Beamer Bluetooth · Setup"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py
+msgid "Exchange the two private setup codes once. On each computer, paste the other's code. Choose Advertise on one and Connect on the other. For Windows + Mac, advertise on the Mac. Either role can supply the mouse and keyboard. Keep codes private: they authorize input and clipboard access."
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py mac_app/kvm_bridge_app.py win_app/kvm_bridge_win.py
+msgid "Save"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py mac_app/kvm_bridge_app.py mac_app/machines_panel.py win_app/kvm_bridge_win.py win_app/machines_win.py
+msgid "Cancel"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py win_app/bluetooth_dialog.py
+msgid "Copy my code"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py
+msgid "This computer's private code (use Copy my code)"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py win_app/bluetooth_dialog.py
+msgid "This computer's private Bluetooth setup code"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py win_app/bluetooth_dialog.py
+msgid "Other computer's private code"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py win_app/bluetooth_dialog.py
+msgid "BB1.…"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py win_app/bluetooth_dialog.py
+msgid "Other computer's private Bluetooth setup code"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py win_app/bluetooth_dialog.py
+msgid "Bluetooth role"
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py
+msgid "Text clipboard: up to 16 KiB. Images and files are excluded."
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py
+msgid "After saving on both computers, arrange screens in the screen map."
+msgstr ""
+
+#: mac_app/bluetooth_dialog.py
+msgid "Bluetooth setup"
+msgstr ""
+
 #: mac_app/bridge.py
 #, python-brace-format
 msgid "{name} does not accept input from this Mac"
@@ -1769,10 +1838,6 @@ msgstr ""
 msgid "Profile name"
 msgstr ""
 
-#: mac_app/kvm_bridge_app.py mac_app/machines_panel.py win_app/kvm_bridge_win.py win_app/machines_win.py
-msgid "Cancel"
-msgstr ""
-
 #: mac_app/kvm_bridge_app.py win_app/kvm_bridge_win.py
 msgid "Earlier ways ▾"
 msgstr ""
@@ -2061,10 +2126,6 @@ msgstr ""
 msgid "New profile"
 msgstr ""
 
-#: mac_app/kvm_bridge_app.py win_app/kvm_bridge_win.py
-msgid "Save"
-msgstr ""
-
 #: mac_app/kvm_bridge_app.py
 msgid "Add"
 msgstr ""
@@ -2169,6 +2230,10 @@ msgid "Double-tap {key}, or push through {ways}"
 msgstr ""
 
 #: mac_app/kvm_bridge_app.py
+msgid "Bluetooth setup saved. Save the matching setup on the other computer, then arrange your screens."
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
 msgid "Saved. Changes apply as you make them."
 msgstr ""
 
@@ -2232,6 +2297,10 @@ msgstr ""
 
 #: mac_app/kvm_bridge_app.py
 msgid "Follows this Mac's mouse or trackpad on every screen; each screen supplies its own zones."
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py win_app/kvm_bridge_win.py
+msgid "Bluetooth setup…"
 msgstr ""
 
 #: mac_app/kvm_bridge_app.py win_app/kvm_bridge_win.py
@@ -2414,6 +2483,10 @@ msgstr ""
 
 #: mac_app/kvm_bridge_app.py win_app/kvm_bridge_win.py
 msgid "Same positions"
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
+msgid "Exchange private codes to connect directly over Bluetooth. No Wi-Fi is required."
 msgstr ""
 
 #: mac_app/kvm_bridge_app.py
@@ -3970,6 +4043,26 @@ msgstr ""
 msgid "{name}, needs attention"
 msgstr ""
 
+#: win_app/bluetooth_dialog.py
+msgid "Exchange the two private setup codes once. On each computer, paste the other computer's code. Choose Advertise on one and Connect on the other. For Windows + Mac, advertise on the Mac. Either role can supply the keyboard and mouse."
+msgstr ""
+
+#: win_app/bluetooth_dialog.py
+msgid "Connect to the other computer"
+msgstr ""
+
+#: win_app/bluetooth_dialog.py
+msgid "Advertise this computer"
+msgstr ""
+
+#: win_app/bluetooth_dialog.py
+msgid "Keep these codes private: they authorize input and clipboard access. After saving on both computers, arrange the screens in Beamer's screen map. Bluetooth carries text clipboard entries up to 16 KiB; images and files are excluded."
+msgstr ""
+
+#: win_app/bluetooth_dialog.py
+msgid "This computer's private code"
+msgstr ""
+
 #: win_app/crossing_ledger.py
 msgid "Return saves, Escape cancels · Only on this PC"
 msgstr ""
@@ -4457,6 +4550,14 @@ msgstr ""
 
 #: win_app/kvm_bridge_win.py
 msgid "For the crossing and the shortcut alike"
+msgstr ""
+
+#: win_app/kvm_bridge_win.py
+msgid "Bluetooth"
+msgstr ""
+
+#: win_app/kvm_bridge_win.py
+msgid "Connect directly over Bluetooth. Exchange private setup codes on both computers; Wi-Fi is not required."
 msgstr ""
 
 #: win_app/kvm_bridge_win.py

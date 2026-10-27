@@ -2352,7 +2352,7 @@ class ControlWindow(AppKit.NSObject):
     def _overview_page(self, body):
         # Pairing stays at the top even when machines are already paired.
         self.overview_body = body
-        widgets.add(body, widgets.Button("Bluetooth setup…", self, "bluetoothSetup:", style="primary").view)
+        widgets.add(body, widgets.Button(tr("Bluetooth setup…"), self, "bluetoothSetup:", style="primary").view)
         widgets.add(body, self.panel.machines_module.view)
         widgets.add(body, self.panel.own_name_module().view)
         widgets.add(body, self.panel.sheet.view)
@@ -4415,8 +4415,8 @@ class ControlWindow(AppKit.NSObject):
     @objc.python_method
     def _connection_module(self):
         module = widgets.Module()
-        module.add(widgets.Button("Bluetooth setup…", self, "bluetoothSetup:", style="primary").view)
-        module.add(widgets.note("Exchange private codes to connect directly over Bluetooth. No Wi-Fi is required.").view)
+        module.add(widgets.Button(tr("Bluetooth setup…"), self, "bluetoothSetup:", style="primary").view)
+        module.add(widgets.note(tr("Exchange private codes to connect directly over Bluetooth. No Wi-Fi is required.")).view)
         # The page edits the first machine paired; any other is changed by pairing it again.
         self.connection_note = widgets.note()
         module.add(self.connection_note.view)
@@ -4609,7 +4609,7 @@ class ControlWindow(AppKit.NSObject):
             self.controller.update_config(self.settings_store.load())
             if self.windows_input is not None:
                 self.windows_input.server.peers_changed()
-            self._say("Bluetooth setup saved. Save the matching setup on the other computer, then arrange your screens.", "signal")
+            self._say(tr("Bluetooth setup saved. Save the matching setup on the other computer, then arrange your screens."), "signal")
 
     def connect_(self, _sender):
         """The Connection page's own commit: a new address, port or token has to reconnect, so it

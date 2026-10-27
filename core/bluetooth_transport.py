@@ -14,6 +14,7 @@ import threading
 import time
 
 from core.bluetooth_setup import service_uuid
+from core.i18n import tr
 
 LOGGER = logging.getLogger("Beamer")
 RX_UUID = "e63ddf52-1610-40dd-9d67-af80c6444735"
@@ -131,7 +132,7 @@ class StreamSession:
 
     def close(self):
         self.closed.set()
-        for event, sock in zip(self.ack_events, self.sockets):
+        for event, sock in zip(self.ack_events, self.sockets, strict=True):
             event.set()
             sock.end()
 
@@ -228,7 +229,7 @@ class BluetoothPeer:
                 break
             except Exception as exc:  # native backends expose platform-specific exception types
                 LOGGER.debug("Bluetooth backend failed", exc_info=True)
-                self._status(f"Bluetooth: {exc}")
+                self._status(tr("Bluetooth: {error}").format(error=exc))
             finally:
                 with self.condition:
                     if self.session is not None:
@@ -296,7 +297,7 @@ class BluetoothPeer:
 
     async def _central(self):
         from bleak import BleakClient, BleakScanner
-        self._status("Looking for the other computer over Bluetooth")
+        self._status(tr("Looking for the other computer over Bluetooth"))
         device = await BleakScanner.find_device_by_filter(
             lambda _device, adv: self.service in [s.lower() for s in adv.service_uuids],
             timeout=8, service_uuids=[self.service])
@@ -342,7 +343,7 @@ class BluetoothPeer:
         backend = make_peripheral(self.service, self._packet_callback(queue))
         try:
             await backend.start()
-            self._status("Advertising over Bluetooth; choose Connect on the other computer")
+            self._status(tr("Advertising over Bluetooth; choose Connect on the other computer"))
             async def receive(packet):
                 if self.session is None:
                     if len(packet) != 11 or packet[0] != HELLO:

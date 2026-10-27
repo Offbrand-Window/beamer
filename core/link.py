@@ -825,7 +825,10 @@ class OutboundLink:
                 message = {"type": message["type"], "data": data}
             merged = None
             if seq and self._outbox:
-                merged = protocol.coalesce_mousemove(self._outbox[-1], message, preserve_path="motion_path" in self._caps)
+                if getattr(self._sock, "is_bluetooth", False):
+                    merged = bluetooth_setup.coalesce_mousemove(self._outbox[-1], message)
+                else:
+                    merged = protocol.coalesce_mousemove(self._outbox[-1], message, preserve_path="motion_path" in self._caps)
             previous_size = _weight(self._outbox[-1]) if merged is not None else 0
             added_size = _weight(merged) - previous_size if merged is not None else _weight(message)
             if ((merged is None and len(self._outbox) >= QUEUE_LIMIT)

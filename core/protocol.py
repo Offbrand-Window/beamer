@@ -54,8 +54,8 @@ LINK_VERSION = 6
 # move on every reboot: one landed on the old 51820 and the receiver could not bind at all,
 # while the PC's outward link carried on working, so input went one way only. Nothing is
 # handed out below 49152, so the port a user pairs on stays theirs.
-DEFAULT_PORT = 24920
-PAIRING_PORT = 24921
+DEFAULT_PORT = 24820
+PAIRING_PORT = 24821
 # What DEFAULT_PORT used to be. A config still carrying it was never chosen by
 # anyone, so it is migrated rather than honoured; a port a user picked is left alone.
 LEGACY_DEFAULT_PORT = 51820

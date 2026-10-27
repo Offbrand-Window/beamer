@@ -90,7 +90,7 @@ you should use Connect instead. Try both directions and test with Wi-Fi disabled
 to confirm Bluetooth carries the input.
 
 The upstream LAN mode is still available for ordinary LAN-paired peers. Its pairing
-and input ports in this fork are 24921 and 24920. Neither is used to carry a
+and input ports in this fork are 24821 and 24820. Neither is used to carry a
 Bluetooth-paired peer's input. The app can still make ordinary update requests if
 you explicitly enable its upstream update checker; it defaults off in this fork.
 
@@ -98,7 +98,7 @@ you explicitly enable its upstream update checker; it defaults off in this fork.
 
 ```sh
 python -m unittest core.tests.test_bluetooth -v
-python -m unittest discover -s core/tests -q
+python -m unittest discover -s core/tests -t . -q
 cd mac_app
 python -m unittest discover -s tests -q
 ```

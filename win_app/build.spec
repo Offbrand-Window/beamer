@@ -1,4 +1,3 @@
-from PyInstaller.utils.hooks import collect_submodules
 from pathlib import Path
 
 
@@ -19,7 +18,7 @@ analysis = Analysis(
           + [(str(path), "locales") for path in (source_dir.parent / "locales").glob("*.po")],
     # core/effects.py imports its fx_* modules by name, which PyInstaller's analysis cannot see; they are
     # among core_modules. segno is imported inside a try in qr_code.py, so it is named here as well.
-    hiddenimports=["nacl", "_cffi_backend", "segno", "win32com.client", "pythoncom", "pywintypes"] + app_modules + core_modules + collect_submodules("bleak"),
+    hiddenimports=["nacl", "_cffi_backend", "segno", "win32com.client", "pythoncom", "pywintypes"] + app_modules + core_modules + ["bleak.backends.winrt.client", "bleak.backends.winrt.scanner", "bleak.backends.winrt.util"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

@@ -1,4 +1,3 @@
-from PyInstaller.utils.hooks import collect_submodules
 from pathlib import Path
 
 
@@ -14,7 +13,7 @@ analysis = Analysis(
            (str(source_dir.parent / "VERSION"), "."),
            (str(source_dir / "identify_layer_shell.py"), ".")]
           + [(str(path), "locales") for path in (source_dir.parent / "locales").glob("*.po")],
-    hiddenimports=["kvm_bridge_win", "nacl", "_cffi_backend", "segno", "win32com.client", "pythoncom", "pywintypes"] + app_modules + core_modules + collect_submodules("bleak"),
+    hiddenimports=["kvm_bridge_win", "nacl", "_cffi_backend", "segno", "win32com.client", "pythoncom", "pywintypes"] + app_modules + core_modules + ["bleak.backends.winrt.client", "bleak.backends.winrt.scanner", "bleak.backends.winrt.util"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[str(source_dir / "hooks" / "portable_storage.py")],

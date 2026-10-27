@@ -7,6 +7,7 @@ import copy
 import os
 import socket
 import unittest
+from unittest import mock
 
 from core import bluetooth_setup as setup
 from core import protocol
@@ -65,6 +66,12 @@ class PairingTests(unittest.TestCase):
         self.assertIsNone(setup.message_for_bluetooth(protocol.clipboard_msg("😀" * 4097)))
         self.assertIsNone(setup.message_for_bluetooth(protocol.clipboard_msg(image=b"image")))
         self.assertEqual(setup.capabilities(["clipboard", "clipboard_image", "motion_path", "text"]), ["clipboard", "text"])
+
+    def test_diagonal_motion_coalesces_without_crossing_key_boundaries(self):
+        previous = protocol.mousemove_msg(2, 3, 1)
+        merged = setup.coalesce_mousemove(previous, protocol.mousemove_msg(-1, 4, 2))
+        self.assertEqual(merged, protocol.mousemove_msg(1, 7, 2))
+        self.assertIsNone(setup.coalesce_mousemove(previous, protocol.key_msg("keydown", "a", seq=2)))
 
 
 class Streams(unittest.IsolatedAsyncioTestCase):
@@ -162,3 +169,39 @@ class Streams(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(TimeoutError):
             await a.send(0, b"a mouse click")
         a.close()
+
+    async def test_real_outbound_and_responder_forward_input_and_release_on_disconnect(self):
+        from core.tests.responder_harness import B, HERE, Machine, entry
+        from core.tests.test_link import Side
+        machine = Machine([entry(B, "PC")])
+        # Use the actual accept/handshake/serve path, with an in-memory radio and fake OS
+        # injection. No TCP listener or system Bluetooth permission is needed for this test.
+        machine.responder._requested_running = True
+        self.b.incoming = lambda sock: machine.responder._accept_connection(sock, "bluetooth:test")
+        side = Side()
+        side.peer()["bluetooth"] = "connect"
+        link = side.link()
+        async def until(predicate):
+            async with asyncio.timeout(4):
+                while not predicate():
+                    await asyncio.sleep(0.005)
+        try:
+            with mock.patch("core.bluetooth_transport.connect", return_value=self.a.outgoing):
+                link.start()
+                await until(link.live)
+                self.assertNotIn("clipboard_image", link.caps)
+                self.assertTrue(link.post(protocol.focus_v6(1, HERE, edge="left", offset=0.5)))
+                await until(lambda: machine.responder.owner == B)
+                self.assertTrue(link.send_input(protocol.mousemove_msg(5, 7)))
+                self.assertTrue(link.send_input(protocol.key_msg("keydown", "a")))
+                self.assertTrue(link.post(protocol.clipboard_msg("Copied over Bluetooth")))
+                await until(lambda: ("key", "a", True) in machine.injected())
+                await until(lambda: machine.clipboard.text == "Copied over Bluetooth")
+                self.assertIn(("move", 5, 7), machine.injected())
+                self.a.close()
+                self.b.close()  # physical link loss closes both endpoints
+                await until(lambda: ("key", "a", False) in machine.injected())
+                self.assertIsNone(machine.responder.owner)
+        finally:
+            await asyncio.to_thread(link.stop)
+            await asyncio.to_thread(machine.stop)

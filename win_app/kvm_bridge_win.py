@@ -4669,10 +4669,10 @@ class WindowsApplication(QWidget):
     # -- Connection -------------------------------------------------------------------------
 
     def _bluetooth_module(self, layout):
-        module = widgets.Module("Bluetooth")
-        note = widgets.label("Connect directly over Bluetooth. Exchange private setup codes on both computers; Wi-Fi is not required.", "note", wrap=True)
+        module = widgets.Module(tr("Bluetooth"))
+        note = widgets.label(tr("Connect directly over Bluetooth. Exchange private setup codes on both computers; Wi-Fi is not required."), "note", wrap=True)
         module.body.addWidget(note)
-        button = QPushButton("Bluetooth setup…")
+        button = QPushButton(tr("Bluetooth setup…"))
         button.clicked.connect(self._bluetooth_setup)
         module.body.addWidget(button)
         layout.addWidget(module)

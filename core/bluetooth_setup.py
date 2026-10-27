@@ -107,3 +107,12 @@ def message_for_bluetooth(message):
     if not isinstance(text, str) or len(text.encode("utf-8")) > TEXT_LIMIT:
         return None
     return protocol.clipboard_msg(text)
+
+
+def coalesce_mousemove(previous, current):
+    # Beamer's no-path mode only merges straight horizontal/vertical samples. BLE needs
+    # diagonal motion to coalesce too, while retaining key/button boundaries and total travel.
+    merged = protocol.coalesce_mousemove(previous, current, preserve_path=True)
+    if merged is not None:
+        merged["data"].pop("samples", None)
+    return merged
