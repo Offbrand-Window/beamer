@@ -24,6 +24,7 @@ import time
 from core import peerlist
 from core import protocol
 from core import receiver
+from core import bluetooth_setup, bluetooth_transport
 from core.i18n import tr
 from core.response_time import ResponseTime
 from core.link_timing import LinkTiming
@@ -287,7 +288,7 @@ class OutboundLink:
                 with self._lock:
                     tried, self._try_host = self._try_host, None
                     tried_port, self._try_port = self._try_port, None
-                if entry.get("host_pinned") is not False:
+                if entry.get("bluetooth") or entry.get("host_pinned") is not False:
                     tried = None
                     tried_port = None
                 if self._blocked_for is not None:
@@ -381,7 +382,13 @@ class OutboundLink:
         self._dialled_to, self._dialled_port = host, port
         try:
             try:
-                sock = self._factory((host, port), timeout=CONNECT_SECONDS)
+                if entry.get("bluetooth") in ("connect", "advertise"):
+                    try:
+                        sock = bluetooth_transport.connect(self._book, entry, CONNECT_SECONDS)
+                    except OSError as exc:
+                        raise LinkEnded(str(exc), "bluetooth") from exc
+                else:
+                    sock = self._factory((host, port), timeout=CONNECT_SECONDS)
             except OSError as exc:
                 if exc.errno != errno.EHOSTUNREACH or self._tunnel is None or direct:
                     raise connection_ended(exc, name) from None
@@ -451,6 +458,8 @@ class OutboundLink:
     def _handshake(self, sock, entry, host, deadline, direct, port=None):
         name = self._name(entry)
         identity = self._identity()
+        if getattr(sock, "is_bluetooth", False):
+            identity = dict(identity, caps=bluetooth_setup.capabilities(identity["caps"]))
         own_id = bytes(identity["id"])
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
@@ -497,6 +506,8 @@ class OutboundLink:
         if outcome == receiver.WRONG_ID:
                 raise LinkEnded(tr("A different Beamer answered at {host}").format(host=host), "different")
         sock.settimeout(READ_SECONDS)
+        if getattr(sock, "is_bluetooth", False):
+            welcome["caps"] = bluetooth_setup.capabilities(welcome["caps"])
         welcome["own_caps"] = identity["caps"]
         welcome["session"] = session
         return welcome
@@ -768,6 +779,10 @@ class OutboundLink:
         peer cannot take it; a clipboard keeps only the parts its capabilities cover."""
         if not self._live:
             return False
+        if getattr(self._sock, "is_bluetooth", False):
+            message = bluetooth_setup.message_for_bluetooth(message)
+            if message is None:
+                return True
         kind = message.get("type")
         if kind in (protocol.MSG_FOCUS, protocol.MSG_SWITCH) and "displays" not in self._caps:
             data = dict(message.get("data") or {})

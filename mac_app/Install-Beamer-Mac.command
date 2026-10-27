@@ -3,13 +3,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_SOURCE="$SCRIPT_DIR/dist/Beamer.app"
-DEST_APP="/Applications/Beamer.app"
+APP_SOURCE="$SCRIPT_DIR/dist/Beamer Bluetooth.app"
+DEST_APP="/Applications/Beamer Bluetooth.app"
 
 trap 'status=$?; echo "Installation failed."; read -r -p "Press Return to close"; exit $status' ERR
 
-"$SCRIPT_DIR/build_dmg.sh"
-killall Beamer 2>/dev/null || true
+bash "$SCRIPT_DIR/../tools/build_bluetooth_mac.sh"
+killall "Beamer Bluetooth" 2>/dev/null || true
 
 rm -rf "$DEST_APP"
 ditto "$APP_SOURCE" "$DEST_APP"
@@ -25,7 +25,7 @@ xattr -cr "$DEST_APP"
 # exists for builds driven over SSH, where the login keychain cannot be unlocked.
 # Resetting resolves the id through LaunchServices, so it runs after the new bundle is in place,
 # and never blocks the install: a first install on a clean machine has nothing to revoke.
-BUNDLE_ID="uk.co.kalkman.beamer"
+BUNDLE_ID="local.beamer.bluetooth"
 if codesign -dv "$DEST_APP" 2>&1 | grep -q "Signature=adhoc"; then
     for service in Accessibility ListenEvent LocalNetwork; do
         if tccutil reset "$service" "$BUNDLE_ID" >/dev/null 2>&1; then

@@ -9,6 +9,8 @@ import hmac
 import ipaddress
 import logging
 import socket
+
+from core import bluetooth_setup, bluetooth_transport
 import sys
 import threading
 import time
@@ -417,6 +419,10 @@ class _Link:
         return self.response_time.response_time_ms
 
     def post(self, message: dict) -> bool:
+        if getattr(self.sock, "is_bluetooth", False):
+            message = bluetooth_setup.message_for_bluetooth(message)
+            if message is None:
+                return True
         with self.cond:
             if self.closed.is_set():
                 return False
@@ -547,6 +553,7 @@ class LinkResponder:
         listener=None,
     ) -> None:
         self._book = book
+        book._bluetooth_owner = self
         self._identity = identity
         self._status_callback = status_callback
         self._injector = injector
@@ -664,8 +671,15 @@ class LinkResponder:
             self._requested_running = True
         self._set_status(ServerState.WAITING, tr("Starting on port {port}").format(port=port))
         thread.start()
+        self._sync_bluetooth()
+
+    def _sync_bluetooth(self):
+        if self._requested_running:
+            bluetooth_transport.sync(self, self._book.peers(),
+                lambda connection: self._accept_connection(connection, "bluetooth:" + str(id(connection.session))))
 
     def stop(self) -> None:
+        bluetooth_transport.stop(self)
         with self._lock:
             self._requested_running = False
             stop_event, listener, thread = self._stop_event, self._listener, self._thread
@@ -709,22 +723,7 @@ class LinkResponder:
                     if stop_event.is_set():
                         break
                     raise
-                accepted = time.monotonic()
-                with self._lock:
-                    crowded = self._handshaking >= MAX_HANDSHAKE_THREADS
-                    if not crowded:
-                        self._handshaking += 1
-                        displaced = self._slots.take(address[0], connection)
-                        self._connections.add(connection)
-                if crowded:
-                    LOGGER.warning("Closed a connection from %s: %d handshakes already running", address[0], MAX_HANDSHAKE_THREADS)
-                    _close_socket(connection)
-                    continue
-                if displaced is not None:
-                    _close_socket(displaced)
-                threading.Thread(
-                    target=self._connection_thread, args=(connection, address[0], accepted), name="Beamer-v6-link", daemon=True
-                ).start()
+                self._accept_connection(connection, address[0])
         except Exception as exc:
             if not stop_event.is_set():
                 LOGGER.exception("The version 6 listener failed")
@@ -734,6 +733,22 @@ class LinkResponder:
                 listener = self._listener
                 self._listener = None
             _close_socket(listener)
+
+    def _accept_connection(self, connection, host):
+        accepted = time.monotonic()
+        with self._lock:
+            crowded = not self._requested_running or self._handshaking >= MAX_HANDSHAKE_THREADS
+            if not crowded:
+                self._handshaking += 1
+                displaced = self._slots.take(host, connection)
+                self._connections.add(connection)
+        if crowded:
+            _close_socket(connection)
+            return
+        if displaced is not None:
+            _close_socket(displaced)
+        threading.Thread(target=self._connection_thread, args=(connection, host, accepted),
+                         name="Beamer-v6-link", daemon=True).start()
 
     def _bind(self, port: int, stop_event: threading.Event):
         if self._prebound_listener is not None:
@@ -806,6 +821,9 @@ class LinkResponder:
                 self._answer(connection, host, session.seal(protocol.invalid_hello_v6()))
                 return None
             identity = self._identity()
+            if getattr(connection, "is_bluetooth", False):
+                identity = dict(identity, caps=bluetooth_setup.capabilities(identity["caps"]))
+                hello["caps"] = bluetooth_setup.capabilities(hello["caps"])
             own_id = bytes(identity["id"])
             changes = {"name": hello["name"], "platform": hello["platform"], "port": hello["port"]}
             if hello["hw"] is not None:
@@ -1703,6 +1721,7 @@ class LinkResponder:
         `accepts`, and turned off, loses its ownership with `refuse {why: "not_allowed"}`."""
         with self._lock:
             self._generation += 1
+        self._sync_bluetooth()
         peers, _ = self._settings_now()
         by_key_id = {}
         for peer in peers:

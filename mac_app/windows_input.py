@@ -125,7 +125,7 @@ class WindowsInput:
     def _held(self):
         """What the responder arms and answers from: the peers' ids, tokens, sides and switches, and the zones."""
         book = self._controller.book
-        peers = tuple((p.get("id"), p.get("token"), p.get("side"), p.get("allow_drive"), p.get("in_use", True)) for p in book.peers())
+        peers = tuple((p.get("id"), p.get("token"), p.get("side"), p.get("allow_drive"), p.get("in_use", True), p.get("bluetooth")) for p in book.peers())
         return peers, json.dumps(book.zones(), sort_keys=True)
 
     def stop(self) -> None:

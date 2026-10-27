@@ -45,7 +45,7 @@ try:
 except OSError:
     PROFILE_APP_VERSION = profiles.APP_VERSION
 
-APP_SUPPORT_DIRECTORY = Path.home() / "Library" / "Application Support" / "Beamer"
+APP_SUPPORT_DIRECTORY = Path.home() / "Library" / "Application Support" / "Beamer Bluetooth"
 DEFAULT_SETTINGS_PATH = APP_SUPPORT_DIRECTORY / "settings.json"
 LEGACY_FILE = "config.json"
 
@@ -115,7 +115,7 @@ def editable_default_config():
         mac_address="",
         send_to_windows=True,
         allow_windows_to_drive=True,
-        check_updates=True,
+        check_updates=False,
         hide_addresses=False,
         language="auto",
         hide_idle_pointer=True,

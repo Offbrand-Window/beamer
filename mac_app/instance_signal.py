@@ -45,4 +45,4 @@ def request_running_instance(path: Path, timeout: float = 2.0) -> bool:
 
 
 def instance_socket_path() -> Path:
-    return Path.home() / "Library" / "Application Support" / "Beamer" / "Beamer.sock"
+    return Path.home() / "Library" / "Application Support" / "Beamer Bluetooth" / "Beamer.sock"

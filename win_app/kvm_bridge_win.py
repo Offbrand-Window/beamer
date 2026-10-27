@@ -352,8 +352,8 @@ def _instance_server_name() -> str:
         session = ctypes.c_ulong()
         if not kernel32.ProcessIdToSessionId(kernel32.GetCurrentProcessId(), ctypes.byref(session)):
             raise OSError("Beamer could not identify its Windows session")
-        return f"Beamer.Receiver.{session.value}{portable_runtime.instance_suffix()}"
-    suffix = f"Beamer.Receiver.{os.getuid()}"
+        return f"Beamer.Bluetooth.Receiver.{session.value}{portable_runtime.instance_suffix()}"
+    suffix = f"Beamer.Bluetooth.Receiver.{os.getuid()}"
     if sys.platform.startswith("linux"):
         runtime_location = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.RuntimeLocation)
         directory = Path(runtime_location) if runtime_location else Path(tempfile.gettempdir())
@@ -953,6 +953,7 @@ class WindowsApplication(QWidget):
     # -- Overview ---------------------------------------------------------------------------
 
     def _overview_page(self, layout, current) -> None:
+        self._bluetooth_module(layout)
         self.machines = machines_win.MachinesModule(
             self._set_peer_send, self._set_peer_allow, self._set_peer_in_use, self._set_peer_left_out,
             self._remove_peer, self._toggle_pairing_sheet, self._rename_peer,
@@ -4667,7 +4668,23 @@ class WindowsApplication(QWidget):
 
     # -- Connection -------------------------------------------------------------------------
 
+    def _bluetooth_module(self, layout):
+        module = widgets.Module("Bluetooth")
+        note = widgets.label("Connect directly over Bluetooth. Exchange private setup codes on both computers; Wi-Fi is not required.", "note", wrap=True)
+        module.body.addWidget(note)
+        button = QPushButton("Bluetooth setup…")
+        button.clicked.connect(self._bluetooth_setup)
+        module.body.addWidget(button)
+        layout.addWidget(module)
+
+    def _bluetooth_setup(self):
+        import bluetooth_dialog
+        if bluetooth_dialog.show(self, self.book, OWN_PLATFORM):
+            self.reload_config()
+            self.server.peers_changed()
+
     def _connection_page(self, layout, current: Config) -> None:
+        self._bluetooth_module(layout)
         self._firewall_module(layout)
         privacy = widgets.Module(tr("Addresses"))
         self.hide_switch = widgets.Switch(tr("Hide addresses"))
@@ -5790,7 +5807,7 @@ def _claim_instance():
         # through windll can read an error ctypes' own marshalling set in between,
         # and 183 (already exists) is the whole single-instance check.
         kernel32 = _windows_kernel32()
-        mutex = kernel32.CreateMutexW(None, False, "Local\\Beamer.Receiver" + portable_runtime.instance_suffix())
+        mutex = kernel32.CreateMutexW(None, False, "Local\\Beamer.Bluetooth.Receiver" + portable_runtime.instance_suffix())
         already_running = ctypes.get_last_error() == 183
         if not mutex:
             raise OSError("Beamer could not create its single-instance lock")
@@ -5800,7 +5817,7 @@ def _claim_instance():
         return lambda: kernel32.CloseHandle(mutex)
     from PySide6.QtCore import QLockFile
 
-    lock = QLockFile(str(Path(tempfile.gettempdir()) / f"Beamer.Receiver.{os.getuid()}.lock"))
+    lock = QLockFile(str(Path(tempfile.gettempdir()) / f"Beamer.Bluetooth.Receiver.{os.getuid()}.lock"))
     lock.setStaleLockTime(0)
     return lock.unlock if lock.tryLock(0) else None
 
@@ -5824,7 +5841,7 @@ def _claim_input_controller():
 
 def _installed_instance_running():
     kernel32 = _windows_kernel32()
-    installed = kernel32.OpenMutexW(0x00100000, False, "Local\\Beamer.Receiver")
+    installed = kernel32.OpenMutexW(0x00100000, False, "Local\\Beamer.Bluetooth.Receiver")
     error = ctypes.get_last_error()
     if installed:
         kernel32.CloseHandle(installed)

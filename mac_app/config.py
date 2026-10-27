@@ -74,7 +74,7 @@ class Config:
     send_to_windows: bool = True
     allow_windows_to_drive: bool = True
     # Ask GitHub once a day whether a newer release is out; see updates.py.
-    check_updates: bool = True
+    check_updates: bool = False
     # Every address the window shows is hidden; see pages.redact.
     hide_addresses: bool = False
     language: str = "auto"

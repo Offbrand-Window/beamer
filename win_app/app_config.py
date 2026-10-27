@@ -124,7 +124,7 @@ class Config:
     # receiver, and the outward link.
     allow_mac_to_drive: bool = True
     # Ask GitHub once a day whether a newer release is out; see updates.py.
-    check_updates: bool = True
+    check_updates: bool = False
     # Every address the window shows is hidden.
     hide_addresses: bool = False
     language: str = "auto"
@@ -229,8 +229,8 @@ def default_config_path() -> Path:
         return portable_runtime.settings_path()
     base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_CONFIG_HOME")
     if base:
-        return Path(base) / "Beamer" / "settings.json"
-    return Path.home() / ".config" / "Beamer" / "settings.json"
+        return Path(base) / "Beamer Bluetooth" / "settings.json"
+    return Path.home() / ".config" / "Beamer Bluetooth" / "settings.json"
 
 
 def legacy_config_path(path: Path) -> Path:

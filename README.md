@@ -1,3 +1,5 @@
+> **Experimental Bluetooth fork:** see [BLUETOOTH.md](BLUETOOTH.md) for setup, builds, supported systems, and testing limits. This is an independent prototype based on Beamer, not an upstream release.
+
 <p align="center"><img src="Beamer.svg" width="96" height="96" alt=""></p>
 <h1 align="center">Beamer</h1>
 <p align="center">One keyboard and one mouse or trackpad for Macs, Windows PCs and Linux machines on the same network, in either direction.</p>

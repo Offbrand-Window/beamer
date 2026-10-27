@@ -4,3 +4,6 @@ pyinstaller-hooks-contrib>=2024.1
 PyNaCl>=1.6
 pywin32>=306
 segno>=1.6
+
+# Bluetooth central transport; peripheral uses native CoreBluetooth / WinRT APIs.
+bleak==1.1.1

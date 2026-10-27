@@ -76,7 +76,7 @@ from windows_input import WindowsInput
 from core.receiver import ServerState
 
 
-LOG_DIRECTORY = Path.home() / "Library" / "Logs" / "Beamer"
+LOG_DIRECTORY = Path.home() / "Library" / "Logs" / "Beamer Bluetooth"
 LOG_PATH = LOG_DIRECTORY / "Beamer.log"
 CAPTURE_RETRY_INTERVAL_SECONDS = 5.0
 # The repo-root VERSION file is the one place the version is set; py2app copies it into Resources.
@@ -180,7 +180,7 @@ def input_monitoring_granted():
 
 
 def acquire_instance_lock():
-    lock_path = Path.home() / "Library" / "Application Support" / "Beamer" / "Beamer.lock"
+    lock_path = Path.home() / "Library" / "Application Support" / "Beamer Bluetooth" / "Beamer.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     handle = lock_path.open("a", encoding="utf-8")
     try:
@@ -2352,6 +2352,7 @@ class ControlWindow(AppKit.NSObject):
     def _overview_page(self, body):
         # Pairing stays at the top even when machines are already paired.
         self.overview_body = body
+        widgets.add(body, widgets.Button("Bluetooth setup…", self, "bluetoothSetup:", style="primary").view)
         widgets.add(body, self.panel.machines_module.view)
         widgets.add(body, self.panel.own_name_module().view)
         widgets.add(body, self.panel.sheet.view)
@@ -4414,6 +4415,8 @@ class ControlWindow(AppKit.NSObject):
     @objc.python_method
     def _connection_module(self):
         module = widgets.Module()
+        module.add(widgets.Button("Bluetooth setup…", self, "bluetoothSetup:", style="primary").view)
+        module.add(widgets.note("Exchange private codes to connect directly over Bluetooth. No Wi-Fi is required.").view)
         # The page edits the first machine paired; any other is changed by pairing it again.
         self.connection_note = widgets.note()
         module.add(self.connection_note.view)
@@ -4599,6 +4602,14 @@ class ControlWindow(AppKit.NSObject):
     @objc.python_method
     def _host_text(self):
         return (self.host_secret if self.controller.cfg.hide_addresses else self.host_field).stringValue()
+
+    def bluetoothSetup_(self, _sender):
+        import bluetooth_dialog
+        if bluetooth_dialog.show(self.controller.book):
+            self.controller.update_config(self.settings_store.load())
+            if self.windows_input is not None:
+                self.windows_input.server.peers_changed()
+            self._say("Bluetooth setup saved. Save the matching setup on the other computer, then arrange your screens.", "signal")
 
     def connect_(self, _sender):
         """The Connection page's own commit: a new address, port or token has to reconnect, so it

@@ -21,6 +21,7 @@ setup(
     app=["kvm_bridge_app.py"],
     py_modules=[
         "bridge",
+        "bluetooth_dialog",
         "clipboard_mac",
         "config",
         "crossing",
@@ -72,14 +73,14 @@ setup(
             "argv_emulation": False,
             # PyNaCl (nacl) ships a compiled _sodium extension reached through cffi; naming both
             # packages keeps their data files and submodules in the bundle.
-            "packages": ["rumps", "cffi", "nacl"],
+            "packages": ["rumps", "cffi", "nacl", "bleak"],
             # core/effects.py imports its fx_* modules by name at first use, which py2app's import
             # scan cannot see, so they are named here or the bundle ships without a single effect.
             # Other explicit imports supplement the dependency scan; naming core whole would ship
             # its tests and Qt-only capture/portable modules too.
             "includes": [
-                "objc", "AppKit", "ApplicationServices", "Quartz", "UserNotifications",
-                "core.crash_log", "core.effects", "core.i18n", "core.locale", "core.idle_pointer", "core.ignored", "core.keytable", "core.link", "core.owner", "core.pairing",
+                "objc", "CoreBluetooth", "libdispatch", "AppKit", "ApplicationServices", "Quartz", "UserNotifications",
+                "core.bluetooth_setup", "core.bluetooth_transport", "core.bluetooth_native", "core.bluetooth_mac", "core.crash_log", "core.effects", "core.i18n", "core.locale", "core.idle_pointer", "core.ignored", "core.keytable", "core.link", "core.owner", "core.pairing",
                 "core.peerlist", "core.protocol", "core.receiver", "core.return_edge", "core.settings_sync",
                 "core.updates", "core.wol", "core.identify_screens",
                 "core.fx_ink", "core.fx_instrument", "core.fx_membrane", "core.fx_sparks", "core.fx_warp",
@@ -87,9 +88,9 @@ setup(
             ],
             "iconfile": "../Beamer.icns",
             "plist": {
-                "CFBundleDisplayName": "Beamer",
-                "CFBundleIdentifier": "uk.co.kalkman.beamer",
-                "CFBundleName": "Beamer",
+                "CFBundleDisplayName": "Beamer Bluetooth",
+                "CFBundleIdentifier": "local.beamer.bluetooth",
+                "CFBundleName": "Beamer Bluetooth",
                 "CFBundleShortVersionString": PLIST_VERSION,
                 "CFBundleVersion": BUILD,
                 "LSMinimumSystemVersion": "13.0",
@@ -98,6 +99,7 @@ setup(
                 "NSPrincipalClass": "NSApplication",
                 "ATSApplicationFontsPath": "Fonts",
                 "NSHumanReadableCopyright": "Copyright 2026 Toby Kalkman",
+                "NSBluetoothAlwaysUsageDescription": "Beamer Bluetooth connects directly to your paired computers to share mouse, keyboard, and clipboard input.",
                 "NSLocalNetworkUsageDescription": "Beamer needs to reach your other computers on your local network to share keyboard and mouse input.",
                 "CFBundleLocalizations": ["en", "it"],
                 "CFBundleDevelopmentRegion": "en_GB",
