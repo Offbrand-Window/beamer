@@ -5,6 +5,25 @@ GPL-3.0-only license. The original copyright, license, and platform input adapte
 are retained. This fork adds a Bluetooth Low Energy connection beneath Beamer's
 encrypted protocol. It is a prototype, not an upstream release.
 
+## OS connection policy: 1.5.14-bluetooth.3
+
+This update requests CoreBluetooth's low-latency preference when a central subscribes
+to the Mac, and the throughput-optimized connection preset on a Windows 11 central.
+The Windows request is retained until disconnect; unsupported systems continue with
+their existing connection settings. These are preferences, not guaranteed intervals.
+
+It also logs packet delivery round trips, native write duration, credit waits, and
+the negotiated Windows connection parameters where the OS/projection exposes them.
+The response-time display keeps its original end-to-end ping measurement. No timing
+is subtracted to make the displayed result smaller.
+
+V3 is compatible with V2 and keeps saved pairings. Update both computers to request
+the preferences from both ends. Actual improvement must be measured on the devices;
+unit tests cannot establish the adapter's chosen interval or physical performance.
+
+API references: [Apple connection latency](https://developer.apple.com/documentation/corebluetooth/cbperipheralmanager/setdesiredconnectionlatency(_:for:))
+and [Microsoft connection presets](https://learn.microsoft.com/en-us/uwp/api/windows.devices.bluetooth.bluetoothlepreferredconnectionparameters).
+
 ## Performance update: 1.5.14-bluetooth.2
 
 **Update both computers.** Transport revision 2 does not interoperate with the first

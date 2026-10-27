@@ -4,10 +4,83 @@ Windows uses WinRT directly and never renames/restarts the Bluetooth adapter or
 requests administrator rights. macOS uses CoreBluetooth on its own dispatch queue.
 """
 import asyncio
+import logging
 import sys
+import time
 import uuid
+from contextlib import contextmanager
 
 from core.bluetooth_transport import RX_UUID, TX_UUID
+
+LOGGER = logging.getLogger("Beamer")
+
+
+class WindowsConnectionPreference:
+    """Retain the WinRT request for the entire link; releasing it drops the preference."""
+    def __init__(self, requester, preferred):
+        self.requester = requester
+        self.request = None
+        self.last_parameters = None
+        self.last_parameter_check = None
+        self.request = requester.request_preferred_connection_parameters(preferred)
+        LOGGER.info("Windows Bluetooth throughput-optimized preference requested: status=%s", self.request.status)
+
+    def log_parameters(self):
+        now = time.monotonic()
+        if self.last_parameter_check is not None and now - self.last_parameter_check < 5:
+            return
+        self.last_parameter_check = now
+        # This getter is absent in some WinRT projections/Windows versions. A request
+        # status alone is not proof that the controller accepted a particular interval.
+        getter = getattr(self.requester, "get_connection_parameters", None)
+        if getter is None:
+            if self.last_parameters is None:
+                LOGGER.info("Windows Bluetooth negotiated connection-parameter getter unavailable")
+                self.last_parameters = "unavailable"
+            return
+        try:
+            value = getter()
+            parameters = (float(value.connection_interval) * 1.25,
+                          int(value.connection_latency), int(value.link_timeout) * 10)
+            if parameters != self.last_parameters:
+                LOGGER.info("Windows Bluetooth negotiated interval_ms=%.2f peripheral_latency=%d timeout_ms=%d",
+                            *parameters)
+                self.last_parameters = parameters
+        except Exception:
+            LOGGER.debug("Windows Bluetooth connection parameters unavailable", exc_info=True)
+
+    def close(self):
+        request, self.request = self.request, None
+        if request is not None:
+            request.close()
+
+
+@contextmanager
+def prefer_low_latency(client):
+    preference = None
+    if sys.platform == "win32":
+        try:
+            from winrt.windows.devices.bluetooth import (
+                BluetoothLEPreferredConnectionParameters,
+            )
+            # Bleak 1.1.1 exposes no public API for this WinRT feature. Its pinned
+            # Windows backend owns the native BluetoothLEDevice in _requester.
+            requester = getattr(getattr(client, "_backend", None), "_requester", None)
+            if requester is None:
+                raise OSError("Bleak native BluetoothLEDevice unavailable")
+            preference = WindowsConnectionPreference(
+                requester, BluetoothLEPreferredConnectionParameters.throughput_optimized)
+        except Exception as exc:
+            # Windows 10 and unsupported radios must continue to connect normally.
+            LOGGER.info("Windows Bluetooth low-latency preference unavailable: %s", exc)
+    try:
+        yield preference
+    finally:
+        if preference is not None:
+            try:
+                preference.close()
+            except Exception:
+                LOGGER.debug("Could not release Windows Bluetooth preference", exc_info=True)
 
 
 def make_peripheral(service, receive):

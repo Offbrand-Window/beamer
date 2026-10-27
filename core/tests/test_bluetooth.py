@@ -259,6 +259,8 @@ class Streams(unittest.IsolatedAsyncioTestCase):
             await a.receive(HEADER.pack(ACK, a.seq[0]))
             await asyncio.wait_for(blocked, 0.2)
             self.assertEqual(a.pending_bytes[0], 4)
+            self.assertTrue(a.timing["credit_wait"])
+            self.assertTrue(a.timing["delivery_rtt"])
         finally:
             a.close()
             await asyncio.gather(*a.tasks, return_exceptions=True)

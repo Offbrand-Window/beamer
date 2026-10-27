@@ -3,6 +3,7 @@ import sys
 
 if sys.platform == "darwin":
     import asyncio
+    import logging
 
     import CoreBluetooth as CB
     import objc
@@ -10,6 +11,8 @@ if sys.platform == "darwin":
     from libdispatch import dispatch_queue_create
 
     from core.bluetooth_transport import RX_UUID, TX_UUID
+
+    LOGGER = logging.getLogger("Beamer")
 
 
     class BluetoothPeripheralDelegate(NSObject, protocols=[objc.protocolNamed("CBPeripheralManagerDelegate")]):
@@ -119,6 +122,12 @@ if sys.platform == "darwin":
         def _subscribed(self, central):
             if self.central is None:
                 self.central = central
+                try:
+                    self.manager.setDesiredConnectionLatency_forCentral_(
+                        CB.CBPeripheralManagerConnectionLatencyLow, central)
+                    LOGGER.info("Mac Bluetooth low-latency connection preference requested")
+                except Exception as exc:
+                    LOGGER.info("Mac Bluetooth low-latency preference unavailable: %s", exc)
 
         @property
         def packet_size(self):

@@ -4,7 +4,13 @@ import sys
 if sys.platform != "win32":
     raise SystemExit("Run this probe on Windows.")
 
-from winrt.windows.devices.bluetooth import BluetoothAdapter, BluetoothError
+from winrt.windows.devices.bluetooth import (
+    BluetoothAdapter,
+    BluetoothError,
+    BluetoothLEDevice,
+    BluetoothLEPreferredConnectionParameters,
+    BluetoothLEPreferredConnectionParametersRequest,
+)
 from winrt.windows.devices.bluetooth.genericattributeprofile import (
     GattCharacteristicProperties,
     GattClientNotificationResult,
@@ -21,6 +27,9 @@ from winrt.windows.storage.streams import DataReader, DataWriter
 
 required = {
     BluetoothAdapter: ("get_default_async", "is_peripheral_role_supported"),
+    BluetoothLEDevice: ("request_preferred_connection_parameters",),
+    BluetoothLEPreferredConnectionParameters: ("throughput_optimized",),
+    BluetoothLEPreferredConnectionParametersRequest: ("status", "close"),
     GattServiceProvider: ("create_async", "start_advertising", "stop_advertising", "advertisement_status"),
     GattLocalCharacteristic: ("notify_value_for_subscribed_client_async", "add_write_requested",
                               "remove_write_requested", "add_subscribed_clients_changed",

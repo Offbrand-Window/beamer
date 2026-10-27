@@ -15,7 +15,7 @@ jobs:
           python-version: '3.13'
       - run: python -m pip install -r win_app/requirements-win.txt
       - name: Bluetooth transport tests
-        run: python -m unittest core.tests.test_bluetooth -v
+        run: python -m unittest core.tests.test_bluetooth core.tests.test_bluetooth_policy -v
       - name: Windows regression tests
         working-directory: win_app
         env:
