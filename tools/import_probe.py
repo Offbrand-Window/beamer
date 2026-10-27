@@ -23,7 +23,11 @@ REPO = Path(__file__).resolve().parent.parent
 # The entry scripts run as __main__ in a build and are not importable by name there.
 APPS = {
     "mac": ("mac_app", {"kvm_bridge_app", "setup"}, ["theme", "tokens"]),
-    "win": ("win_app", {"kvm_bridge_win"}, []),
+    "win": ("win_app", {"kvm_bridge_win"}, [
+        "bleak.backends.winrt.client", "bleak.backends.winrt.scanner",
+        "winrt.windows.devices.bluetooth.genericattributeprofile",
+        "winrt.windows.storage.streams",
+    ]),
 }
 
 
