@@ -24,11 +24,14 @@ class WindowsPeripheral:
         self.service, self.receive = service, receive
         self.loop = asyncio.get_running_loop()
         self.disconnected = asyncio.Event()
-        self.packet_size = 20
         self.client = None
         self.provider = None
         self.callbacks = []
         self.tasks = set()
+
+    @property
+    def packet_size(self):
+        return min(244, int(self.client.session.max_pdu_size) - 3) if self.client is not None else 20
 
     async def start(self):
         from winrt.windows.devices.bluetooth import BluetoothAdapter, BluetoothError
@@ -89,7 +92,6 @@ class WindowsPeripheral:
     def _subscribed(self, clients):
         if self.client is None and clients:
             self.client = clients[0]
-            self.packet_size = min(244, int(self.client.session.max_pdu_size) - 3)
         elif self.client is not None:
             own = self.client.session.device_id.id
             if not any(c.session.device_id.id == own for c in clients):

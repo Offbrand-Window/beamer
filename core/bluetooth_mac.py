@@ -14,30 +14,51 @@ if sys.platform == "darwin":
 
     class BluetoothPeripheralDelegate(NSObject, protocols=[objc.protocolNamed("CBPeripheralManagerDelegate")]):
         def peripheralManagerDidUpdateState_(self, manager):
-            self.owner.loop.call_soon_threadsafe(self.owner._state, int(manager.state()))
+            owner = self.owner
+            if owner is None:
+                return
+            owner.loop.call_soon_threadsafe(owner._state, int(manager.state()))
 
         def peripheralManager_didAddService_error_(self, _manager, _service, error):
-            self.owner.loop.call_soon_threadsafe(self.owner._service_added, str(error) if error else None)
+            owner = self.owner
+            if owner is None:
+                return
+            owner.loop.call_soon_threadsafe(owner._service_added, str(error) if error else None)
 
         def peripheralManagerDidStartAdvertising_error_(self, _manager, error):
-            self.owner.loop.call_soon_threadsafe(self.owner._advertised, str(error) if error else None)
+            owner = self.owner
+            if owner is None:
+                return
+            owner.loop.call_soon_threadsafe(owner._advertised, str(error) if error else None)
 
         def peripheralManager_central_didSubscribeToCharacteristic_(self, _manager, central, _characteristic):
-            self.owner.loop.call_soon_threadsafe(self.owner._subscribed, central)
+            owner = self.owner
+            if owner is None:
+                return
+            owner.loop.call_soon_threadsafe(owner._subscribed, central)
 
         def peripheralManager_central_didUnsubscribeFromCharacteristic_(self, _manager, central, _characteristic):
-            if self.owner.central is not None and central.identifier() == self.owner.central.identifier():
-                self.owner.loop.call_soon_threadsafe(self.owner.disconnected.set)
+            owner = self.owner
+            if owner is None:
+                return
+            if owner.central is not None and central.identifier() == owner.central.identifier():
+                owner.loop.call_soon_threadsafe(owner.disconnected.set)
 
         def peripheralManagerIsReadyToUpdateSubscribers_(self, _manager):
-            self.owner.loop.call_soon_threadsafe(self.owner.writable.set)
+            owner = self.owner
+            if owner is None:
+                return
+            owner.loop.call_soon_threadsafe(owner.writable.set)
 
         def peripheralManager_didReceiveWriteRequests_(self, manager, requests):
+            owner = self.owner
+            if owner is None:
+                return
             # The OS delivers these on our serial dispatch queue, preserving packet order.
             status = CB.CBATTErrorSuccess
             packets = []
             for request in requests:
-                central = self.owner.central
+                central = owner.central
                 if central is None or request.central().identifier() != central.identifier():
                     status = CB.CBATTErrorInsufficientAuthorization
                     break
@@ -51,9 +72,8 @@ if sys.platform == "darwin":
                 packets.append(data)
             if status == CB.CBATTErrorSuccess:
                 for data in packets:
-                    self.owner.receive(data)
+                    owner.receive(data)
             # Write Without Response has no ATT response. Rejected packets get no stream ACK.
-
 
     class MacPeripheral:
         def __init__(self, service, receive):
@@ -64,7 +84,6 @@ if sys.platform == "darwin":
             self.started = self.loop.create_future()
             self.powered = self.loop.create_future()
             self.added = self.loop.create_future()
-            self.packet_size = 20
             self.central = None
             self.manager = None
             self.delegate = BluetoothPeripheralDelegate.alloc().init()
@@ -100,7 +119,10 @@ if sys.platform == "darwin":
         def _subscribed(self, central):
             if self.central is None:
                 self.central = central
-                self.packet_size = min(244, int(central.maximumUpdateValueLength()))
+
+        @property
+        def packet_size(self):
+            return min(244, int(self.central.maximumUpdateValueLength())) if self.central is not None else 20
 
         async def start(self):
             self.manager = CB.CBPeripheralManager.alloc().initWithDelegate_queue_(self.delegate, self.queue)

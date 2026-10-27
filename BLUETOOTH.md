@@ -5,6 +5,29 @@ GPL-3.0-only license. The original copyright, license, and platform input adapte
 are retained. This fork adds a Bluetooth Low Energy connection beneath Beamer's
 encrypted protocol. It is a prototype, not an upstream release.
 
+## Performance update: 1.5.14-bluetooth.2
+
+**Update both computers.** Transport revision 2 does not interoperate with the first
+Bluetooth prototype. Your existing setup codes and saved pairings still work.
+
+- Sends pipeline through a bounded sliding window instead of waiting for a full
+  Bluetooth round trip after every message. At most four writes can be outstanding;
+  packet and byte budgets also limit queued data.
+- Delivery acknowledgements are cumulative and batched on an independent worker.
+  A missing acknowledgement still closes the link and releases held input.
+- Packet headers shrink from 14 to 5 bytes. Motion and input acknowledgements use
+  compact authenticated records; other messages retain their original encoding.
+- Mouse movement is coalesced before encryption, at up to 125 updates per second,
+  while retaining total travel and ordering around keys and mouse buttons.
+- Packet negotiation waits for the initial 20-byte limit to update, and reads the
+  current peripheral MTU instead of caching its startup value. Negotiated sizes
+  are logged as `Bluetooth transport v2` for diagnosing individual adapters.
+
+The delayed-radio regression models 10 ms connection events, four packets per
+direction, and at least 20 ms round-trip delay. It delivers 42 encrypted motion/key
+messages in 22–24 events; the original stop-and-wait design requires at least 84
+events. This is a simulation, not a latency measurement on physical computers.
+
 ## What is implemented
 
 - Windows → Mac, Mac → Windows, Windows → Windows, and Mac → Mac use the same

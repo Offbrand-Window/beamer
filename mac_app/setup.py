@@ -80,7 +80,7 @@ setup(
             # its tests and Qt-only capture/portable modules too.
             "includes": [
                 "objc", "CoreBluetooth", "libdispatch", "AppKit", "ApplicationServices", "Quartz", "UserNotifications",
-                "core.bluetooth_setup", "core.bluetooth_transport", "core.bluetooth_native", "core.bluetooth_mac", "core.crash_log", "core.effects", "core.i18n", "core.locale", "core.idle_pointer", "core.ignored", "core.keytable", "core.link", "core.owner", "core.pairing",
+                "core.bluetooth_codec", "core.bluetooth_setup", "core.bluetooth_transport", "core.bluetooth_native", "core.bluetooth_mac", "core.crash_log", "core.effects", "core.i18n", "core.locale", "core.idle_pointer", "core.ignored", "core.keytable", "core.link", "core.owner", "core.pairing",
                 "core.peerlist", "core.protocol", "core.receiver", "core.return_edge", "core.settings_sync",
                 "core.updates", "core.wol", "core.identify_screens",
                 "core.fx_ink", "core.fx_instrument", "core.fx_membrane", "core.fx_sparks", "core.fx_warp",

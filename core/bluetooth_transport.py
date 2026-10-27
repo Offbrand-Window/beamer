@@ -5,6 +5,7 @@ central; channel 1 by the peripheral. Both carry ordinary Beamer v6 encrypted li
 No LAN proxy, IP routing, or automatic network fallback is involved.
 """
 import asyncio
+import collections
 import logging
 import secrets
 import socket
@@ -19,10 +20,16 @@ from core.i18n import tr
 LOGGER = logging.getLogger("Beamer")
 RX_UUID = "e63ddf52-1610-40dd-9d67-af80c6444735"
 TX_UUID = "e63ddf52-1610-40dd-9d67-af80c6444736"
-HELLO, READY, DATA, ACK = range(1, 5)
-HEADER = struct.Struct("!B8sBI")
+# Revision 2 is deliberately incompatible with the first prototype. Update both ends.
+HELLO, READY, DATA, ACK = 17, 18, 3, 4
+CHANNEL_BIT = 0x40
+HEADER = struct.Struct("!BI")
 BUFFER_LIMIT = 128 * 1024
-WINDOW = 8
+WINDOW = 32
+MESSAGE_WINDOW = 4
+WINDOW_BYTES = 256
+BULK_WINDOW_BYTES = 2048
+ACK_BATCH_SECONDS = 0.002
 ACK_SECONDS = 1.5
 _registry = {}
 _registry_lock = threading.RLock()
@@ -114,6 +121,14 @@ class BluetoothSocket:
 
 
 class StreamSession:
+    """A bounded sliding window, independent of Beamer message boundaries.
+
+    send() returns once bytes are submitted to the native adapter. Cumulative ACKs
+    release credits asynchronously; only a full window backpressures the writer.
+    A watchdog closes a lost link even when the last send was a lone key release.
+    Native GATT callbacks are bound to this physical connection, so its handshake
+    nonce need not be repeated in every packet. Beamer authenticates every frame.
+    """
     def __init__(self, loop, epoch, packet_size, outgoing_channel, transmit, incoming):
         if len(epoch) != 8 or not HEADER.size < packet_size <= 244:
             raise ValueError("invalid Bluetooth stream parameters")
@@ -129,49 +144,128 @@ class StreamSession:
         self.received = [0, 0]
         self.acked = [0, 0]
         self.ack_events = [asyncio.Event(), asyncio.Event()]
+        self.pending = [collections.deque(), collections.deque()]
+        self.pending_bytes = [0, 0]
+        self.pending_messages = [collections.deque(), collections.deque()]
+        self.pending_changed = asyncio.Event()
+        self.ack_changed = asyncio.Event()
+        self.ack_due = [0, 0]
+        self.failure = None
+        self.tasks = [loop.create_task(self._watch_pending()), loop.create_task(self._write_acks())]
 
     def close(self):
         self.closed.set()
         for event, sock in zip(self.ack_events, self.sockets, strict=True):
             event.set()
             sock.end()
+        current = asyncio.current_task()
+        for task in self.tasks:
+            if task is not current:
+                task.cancel()
+
+    def _check_open(self):
+        if self.closed.is_set():
+            raise ConnectionError(self.failure or "Bluetooth stream closed")
 
     async def send(self, channel, data):
         async with self.send_locks[channel]:
-            if self.closed.is_set():
-                raise ConnectionError("Bluetooth stream closed")
+            self._check_open()
+            while len(self.pending_messages[channel]) >= MESSAGE_WINDOW:
+                self.ack_events[channel].clear()
+                self._check_open()
+                await self.ack_events[channel].wait()
+            self._check_open()
+            limit = BULK_WINDOW_BYTES if len(data) > WINDOW_BYTES else WINDOW_BYTES
             payload = self.packet_size - HEADER.size
-            parts = [data[i:i + payload] for i in range(0, len(data), payload)]
-            for index, part in enumerate(parts):
+            for at in range(0, len(data), payload):
+                part = data[at:at + payload]
+                while len(self.pending[channel]) >= WINDOW or self.pending_bytes[channel] + len(part) > limit:
+                    self.ack_events[channel].clear()
+                    self._check_open()
+                    await self.ack_events[channel].wait()
+                self._check_open()
                 self.seq[channel] += 1
                 seq = self.seq[channel]
                 if seq > 0xffffffff:
-                    raise ConnectionError("Bluetooth sequence exhausted")
-                flush = (index + 1) % WINDOW == 0 or index == len(parts) - 1
-                await self.transmit(HEADER.pack(DATA | (0x80 if flush else 0), self.epoch, channel, seq) + part)
-                if flush:
-                    async def wait_ack(expected=seq):
-                        while self.acked[channel] < expected and not self.closed.is_set():
-                            self.ack_events[channel].clear()
-                            await self.ack_events[channel].wait()
-                        if self.closed.is_set():
-                            raise ConnectionError("Bluetooth disconnected")
-                    await asyncio.wait_for(wait_ack(), ACK_SECONDS)
+                    self.failure = "Bluetooth sequence exhausted"
+                    self.close()
+                    self._check_open()
+                # Reserve before transmit: an in-memory adapter (or a fast real callback) can
+                # acknowledge the packet before the native write operation returns.
+                self.pending[channel].append((seq, len(part), self.loop.time()))
+                self.pending_bytes[channel] += len(part)
+                self.pending_changed.set()
+                try:
+                    await self.transmit(HEADER.pack(DATA | channel * CHANNEL_BIT, seq) + part)
+                except BaseException:
+                    self.close()
+                    raise
+            if data and self.acked[channel] < self.seq[channel]:
+                self.pending_messages[channel].append(self.seq[channel])
+
+    async def drain(self):
+        """For tests/diagnostics: wait for delivery, without forcing each send to wait."""
+        for channel in (0, 1):
+            while self.pending[channel]:
+                self.ack_events[channel].clear()
+                self._check_open()
+                await self.ack_events[channel].wait()
+        self._check_open()
+
+    async def _watch_pending(self):
+        while not self.closed.is_set():
+            self.pending_changed.clear()
+            oldest = [queue[0][2] for queue in self.pending if queue]
+            if not oldest:
+                await self.pending_changed.wait()
+                continue
+            left = min(oldest) + ACK_SECONDS - self.loop.time()
+            if left <= 0:
+                self.failure = "Bluetooth delivery acknowledgement timed out"
+                self.close()
+                return
+            try:
+                await asyncio.wait_for(self.pending_changed.wait(), left)
+            except TimeoutError:
+                continue
+
+    async def _write_acks(self):
+        try:
+            while not self.closed.is_set():
+                await self.ack_changed.wait()
+                # Collapse a burst into one cumulative ACK. This task never holds up the
+                # receive worker while the OS notification queue is full.
+                await asyncio.sleep(ACK_BATCH_SECONDS)
+                self.ack_changed.clear()
+                for channel in (0, 1):
+                    seq, self.ack_due[channel] = self.ack_due[channel], 0
+                    if seq:
+                        await self.transmit(HEADER.pack(ACK | channel * CHANNEL_BIT, seq))
+        except Exception as exc:
+            self.failure = str(exc)
+            self.close()
 
     async def receive(self, packet):
-        if self.closed.is_set() or len(packet) < HEADER.size or len(packet) > self.packet_size:
-            return
-        kind, epoch, channel, seq = HEADER.unpack_from(packet)
-        if epoch != self.epoch:
-            return  # a notification queued by an earlier physical connection
+        if self.closed.is_set():
+            return  # callbacks from retired GATT connections stay bound to their closed session
+        if not HEADER.size <= len(packet) <= self.packet_size:
+            raise ConnectionError("invalid Bluetooth packet length")
+        flags, seq = HEADER.unpack_from(packet)
+        channel, kind = flags // CHANNEL_BIT, flags % CHANNEL_BIT
         if channel not in (0, 1):
             raise ConnectionError("invalid Bluetooth channel")
         if kind == ACK:
             if len(packet) != HEADER.size or not self.acked[channel] <= seq <= self.seq[channel]:
                 raise ConnectionError("invalid Bluetooth acknowledgement")
             self.acked[channel] = seq
+            while self.pending[channel] and self.pending[channel][0][0] <= seq:
+                _seq, size, _at = self.pending[channel].popleft()
+                self.pending_bytes[channel] -= size
+            while self.pending_messages[channel] and self.pending_messages[channel][0] <= seq:
+                self.pending_messages[channel].popleft()
             self.ack_events[channel].set()
-        elif kind & 0x7f == DATA:
+            self.pending_changed.set()
+        elif kind == DATA:
             if seq != self.received[channel] + 1 or len(packet) == HEADER.size:
                 raise ConnectionError("Bluetooth packet lost or reordered")
             self.received[channel] = seq
@@ -179,10 +273,28 @@ class StreamSession:
             if channel != self.outgoing_channel and not self.incoming_started:
                 self.incoming_started = True
                 self.incoming(self.sockets[channel])
-            if kind & 0x80:
-                await self.transmit(HEADER.pack(ACK, self.epoch, channel, seq))
+            self.ack_due[channel] = seq
+            self.ack_changed.set()
         else:
             raise ConnectionError("unknown Bluetooth packet")
+
+
+async def negotiated_packet_size(get_size, timeout=1.0):
+    """Bleak/WinRT can initially expose 20 while the ATT MTU exchange is pending.
+
+    Use the characteristic's actual write limit, not client.mtu_size (which can
+    remain a placeholder on some backends). The peripheral independently caps
+    the value against its current notification limit in the READY handshake.
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while True:
+        size = min(244, int(get_size()))
+        if size < 20:
+            raise ConnectionError("Invalid Bluetooth packet size")
+        if size > 20 or loop.time() >= deadline:
+            return size
+        await asyncio.sleep(min(0.05, max(0, deadline - loop.time())))
 
 
 class BluetoothPeer:
@@ -192,6 +304,7 @@ class BluetoothPeer:
         self.incoming = incoming
         self.condition = threading.Condition()
         self.session = None
+        self._generation = None
         self.claimed = False
         self.status = "Starting Bluetooth"
         self.stopped = threading.Event()
@@ -231,6 +344,7 @@ class BluetoothPeer:
                 LOGGER.debug("Bluetooth backend failed", exc_info=True)
                 self._status(tr("Bluetooth: {error}").format(error=exc))
             finally:
+                self._generation = None
                 with self.condition:
                     if self.session is not None:
                         self.session.close()
@@ -284,9 +398,14 @@ class BluetoothPeer:
             await receive(await queue.get())
 
     def _packet_callback(self, queue):
+        generation = self._generation
         def callback(data):
+            if self.stopped.is_set() or self._generation is not generation:
+                return
             packet = bytes(data)
             def put():
+                if self.stopped.is_set() or self._generation is not generation:
+                    return
                 try:
                     queue.put_nowait(packet)
                 except asyncio.QueueFull:
@@ -305,23 +424,29 @@ class BluetoothPeer:
             raise ConnectionError("Other computer not found. Use Advertise there and exchange both setup codes.")
         disconnected = asyncio.Event()
         async with BleakClient(device, disconnected_callback=lambda _c: self.loop.call_soon_threadsafe(disconnected.set), timeout=15) as client:
+            self._generation = object()
             queue = asyncio.Queue(maxsize=256)
             packet_callback = self._packet_callback(queue)
             await client.start_notify(TX_UUID, lambda _c, data: packet_callback(data))
             epoch = secrets.token_bytes(8)
-            packet_size = min(244, client.mtu_size - 3, client.services.get_characteristic(RX_UUID).max_write_without_response_size)
+            characteristic = client.services.get_characteristic(RX_UUID)
+            packet_size = await negotiated_packet_size(lambda: characteristic.max_write_without_response_size)
             write_lock = asyncio.Lock()
             async def transmit(packet):
                 async with write_lock:
                     await client.write_gatt_char(RX_UUID, packet, response=False)
             # HELLO and READY always fit the minimum ATT value length of 20 bytes.
             await transmit(bytes([HELLO]) + epoch + struct.pack("!H", packet_size))
-            ready = await asyncio.wait_for(queue.get(), 5)
+            try:
+                ready = await asyncio.wait_for(queue.get(), 5)
+            except TimeoutError:
+                raise ConnectionError("Bluetooth handshake timed out. Update Beamer Bluetooth on both computers.") from None
             if len(ready) != 11 or ready[:9] != bytes([READY]) + epoch:
                 raise ConnectionError("Invalid Bluetooth setup response")
             agreed = struct.unpack("!H", ready[9:])[0]
             if not HEADER.size < agreed <= packet_size:
                 raise ConnectionError("Invalid Bluetooth packet size")
+            LOGGER.info("Bluetooth transport v2: packet=%d payload=%d window_bytes=%d message_window=%d", agreed, agreed - HEADER.size, WINDOW_BYTES, MESSAGE_WINDOW)
             session = StreamSession(self.loop, epoch, agreed, 0, transmit, self.incoming)
             self._ready(session)
             worker = asyncio.create_task(self._receive_worker(queue, session.receive))
@@ -339,6 +464,7 @@ class BluetoothPeer:
 
     async def _peripheral(self):
         from core.bluetooth_native import make_peripheral
+        self._generation = object()
         queue = asyncio.Queue(maxsize=256)
         backend = make_peripheral(self.service, self._packet_callback(queue))
         try:
@@ -349,9 +475,11 @@ class BluetoothPeer:
                     if len(packet) != 11 or packet[0] != HELLO:
                         return
                     epoch = packet[1:9]
-                    size = min(244, backend.packet_size, struct.unpack("!H", packet[9:])[0])
+                    available = await negotiated_packet_size(lambda: backend.packet_size, timeout=0.5)
+                    size = min(available, struct.unpack("!H", packet[9:])[0])
                     if size <= HEADER.size:
                         raise ConnectionError("Bluetooth MTU too small")
+                    LOGGER.info("Bluetooth transport v2: packet=%d payload=%d window_bytes=%d message_window=%d", size, size - HEADER.size, WINDOW_BYTES, MESSAGE_WINDOW)
                     session = StreamSession(self.loop, epoch, size, 1, backend.send, self.incoming)
                     await backend.send(bytes([READY]) + epoch + struct.pack("!H", size))
                     self._ready(session)

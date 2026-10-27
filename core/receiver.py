@@ -10,7 +10,7 @@ import ipaddress
 import logging
 import socket
 
-from core import bluetooth_setup, bluetooth_transport
+from core import bluetooth_codec, bluetooth_setup, bluetooth_transport
 import sys
 import threading
 import time
@@ -808,7 +808,8 @@ class LinkResponder:
                 LOGGER.info("%s named a pairing this machine does not have; closed", host)
                 return None
             token = entry["token"]
-            session = protocol.LinkSession(entry["token"], protocol.ROLE_RESPONDER)
+            session_type = bluetooth_codec.BluetoothLinkSession if getattr(connection, "is_bluetooth", False) else protocol.LinkSession
+            session = session_type(entry["token"], protocol.ROLE_RESPONDER)
             session.accept_preamble(preamble)
             deadline = accepted + HANDSHAKE_SECONDS
             # The last read left the preamble's deadline on the socket, perhaps nearly spent.

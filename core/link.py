@@ -24,7 +24,7 @@ import time
 from core import peerlist
 from core import protocol
 from core import receiver
-from core import bluetooth_setup, bluetooth_transport
+from core import bluetooth_codec, bluetooth_setup, bluetooth_transport
 from core.i18n import tr
 from core.response_time import ResponseTime
 from core.link_timing import LinkTiming
@@ -45,6 +45,7 @@ STALL_SECONDS = 2.0
 SENT_RECORD_LIMIT = 20000
 ACK_STALL_SECONDS = 1.5
 INPUT_WINDOW = 32
+BLUETOOTH_MOTION_INTERVAL = 1 / 125
 MEDIA_KEYS = frozenset({"volume_mute", "volume_down", "volume_up", "media_next", "media_prev", "media_stop", "media_play_pause"})
 WINDOW_SECONDS = 30.0
 LOG_SECONDS = 60.0
@@ -463,7 +464,8 @@ class OutboundLink:
         own_id = bytes(identity["id"])
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-        session = protocol.LinkSession(self.token, protocol.ROLE_INITIATOR)
+        session_type = bluetooth_codec.BluetoothLinkSession if getattr(sock, "is_bluetooth", False) else protocol.LinkSession
+        session = session_type(self.token, protocol.ROLE_INITIATOR)
         sock.sendall(session.preamble())
         try:
             # No separate deadline for the preamble: the handshake's five seconds cover it all.
@@ -849,6 +851,8 @@ class OutboundLink:
             return True
 
     def _write(self, sock, session):
+        next_motion = 0.0
+        bluetooth = getattr(sock, "is_bluetooth", False)
         try:
             while True:
                 with self._cond:
@@ -862,7 +866,16 @@ class OutboundLink:
                         self._timing.add("writer_wait_lag", time.monotonic() - waited_at - 0.05)
                     if self._sock is not sock:
                         return
+                    # Batch high-polling mice before sealing. Waiting releases the queue lock,
+                    # so new motion coalesces in place instead of entering the radio's FIFO.
+                    while (bluetooth and self._outbox[0].get("type") == protocol.MSG_MOUSEMOVE
+                           and time.monotonic() < next_motion):
+                        self._cond.wait(next_motion - time.monotonic())
+                        if self._sock is not sock:
+                            return
                     message = self._outbox.popleft()
+                    if bluetooth and message.get("type") == protocol.MSG_MOUSEMOVE:
+                        next_motion = time.monotonic() + BLUETOOTH_MOTION_INTERVAL
                     queued_at = self._queued_at.pop((message.get("data") or {}).get("seq"), None)
                     self._queued_bytes = max(0, self._queued_bytes - _weight(message))
                     self._writing = True
