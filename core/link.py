@@ -45,7 +45,7 @@ STALL_SECONDS = 2.0
 SENT_RECORD_LIMIT = 20000
 ACK_STALL_SECONDS = 1.5
 INPUT_WINDOW = 32
-BLUETOOTH_MOTION_INTERVAL = 1 / 125
+BLUETOOTH_MOTION_INTERVAL = 1 / 250
 MEDIA_KEYS = frozenset({"volume_mute", "volume_down", "volume_up", "media_next", "media_prev", "media_stop", "media_play_pause"})
 WINDOW_SECONDS = 30.0
 LOG_SECONDS = 60.0
@@ -853,6 +853,8 @@ class OutboundLink:
     def _write(self, sock, session):
         next_motion = 0.0
         bluetooth = getattr(sock, "is_bluetooth", False)
+        if bluetooth:
+            LOGGER.info("Bluetooth mouse batching interval_ms=%.1f", BLUETOOTH_MOTION_INTERVAL * 1000)
         try:
             while True:
                 with self._cond:

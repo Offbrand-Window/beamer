@@ -1,7 +1,7 @@
 name: Bluetooth prototype
 on:
   push:
-    branches: [bluetooth-transport]
+    branches: [bluetooth-transport, bluetooth-4ms-test]
   workflow_dispatch:
 permissions:
   contents: read
