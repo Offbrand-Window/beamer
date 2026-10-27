@@ -23,7 +23,7 @@ import xml.etree.ElementTree as ET
 from core import windows_tools
 from core import portable_runtime
 
-TASK_PREFIX = "Beamer-"
+TASK_PREFIX = "Beamer-Bluetooth-"
 CREATE_NO_WINDOW = 0x08000000
 NAME_SAM_COMPATIBLE = 2
 WTS_CURRENT_SESSION = 0xFFFFFFFF
@@ -176,7 +176,7 @@ def migrate_legacy_task(run: Runner = _run, user: Optional[str] = None) -> None:
     if portable_runtime.enabled():
         return
     user = user or current_user()
-    root = _task_root("Beamer", run)
+    root = _task_root("Beamer Bluetooth", run)
     if root is None:
         return
     ns = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
@@ -246,11 +246,11 @@ def set_enabled(enabled: bool, exe: str, user: Optional[str] = None, run: Runner
 def remove_legacy_task(run: Runner = _run, *, disable_first: bool = False) -> None:
     if portable_runtime.enabled():
         return
-    if run(["schtasks", "/query", "/tn", "Beamer"]).returncode == 0:
+    if run(["schtasks", "/query", "/tn", "Beamer Bluetooth"]).returncode == 0:
         if disable_first:
-            result = run(["schtasks", "/change", "/tn", "Beamer", "/disable"])
+            result = run(["schtasks", "/change", "/tn", "Beamer Bluetooth", "/disable"])
             if result.returncode != 0:
                 raise OSError((result.stderr or result.stdout or "schtasks failed").strip())
-        result = run(["schtasks", "/delete", "/tn", "Beamer", "/f"])
+        result = run(["schtasks", "/delete", "/tn", "Beamer Bluetooth", "/f"])
         if result.returncode != 0:
             raise OSError((result.stderr or result.stdout or "schtasks failed").strip())

@@ -31,7 +31,7 @@ implemented in this prototype. Android, iOS, and other mobile systems are not su
 ## Run it
 
 Quit the original Beamer first. This fork has separate settings and a separate Mac
-bundle identity, but two apps capturing the same mouse simultaneously are not useful.
+bundle identity and Windows startup-task names, but two apps capturing the same mouse simultaneously are not useful.
 
 **Mac:** use the supplied `Beamer Bluetooth.app`, or build with
 `bash tools/build_bluetooth_mac.sh`. The result is
@@ -43,7 +43,7 @@ the app, relaunch, and allow Bluetooth when requested.
 
 **Windows:** download `Beamer-Bluetooth-Windows` from a successful
 [Bluetooth prototype workflow](https://github.com/Offbrand-Window/beamer/actions/workflows/bluetooth-build.yml).
-Extract and run `Beamer.exe`. It is an unsigned prototype. Alternatively, install
+Extract and run `Beamer.exe`. It is an unsigned prototype. Use the builds and commands here; the inherited upstream Windows installer scripts are not adapted for this fork. Alternatively, install
 Python 3.13, extract this repository, and double-click `Run Bluetooth Windows.cmd`.
 To build the executable yourself:
 
